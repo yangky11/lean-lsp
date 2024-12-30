@@ -18,47 +18,50 @@ export function activate(context: vscode.ExtensionContext) {
 		// The code you place here will be executed every time your command is executed
 		// Display a message box to the user
 		const activeEditor = vscode.window.activeTextEditor;
-		// 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
 		if (activeEditor) {
 			const document = activeEditor.document;
 			const selection = activeEditor.selection;
 			const selectedText = document.getText(selection);
-			console.log(selectedText);
 			if (selectedText === "sorry") {
-				vscode.window.showInformationMessage('Sorry!');
 				vscode.window.showInputBox({
 					prompt: "Enter your OpenAI API key",
 					placeHolder: "OpenAI API key",
 				}).then((apiKey) => {
-					console.log(apiKey);
 					const client = new OpenAI({
 						apiKey: apiKey,
 					});
-					const fileContent = document.getText(new vscode.Range(0, 0, selection.start.line, selection.start.character));
+					const fileContent = `\`\`\`lean\n${document.getText(new vscode.Range(0, 0, selection.start.line, selection.start.character))}\n\`\`\``;
 					const lean4Extension = vscode.extensions.getExtension('leanprover.lean4');
 					// Assert that the Lean 4 extension is installed
 					if (!lean4Extension) {
 						vscode.window.showErrorMessage('Lean 4 extension is not installed');
 						return;
 					}
-					const systemPrompt = "You are an expert in Lean 4 theorem proving. Given a Lean 4 file up to a cursor position in a proof, suggest a single tactic that would help progress the proof. Your response should include only the tactic, with no additional explanation or formatting.";
-					console.log(systemPrompt);
-					console.log(fileContent);
-					client.chat.completions.create({
-						model: "gpt-4o",
-						messages: [
-							{ role: "system", content: systemPrompt },
-							{ role: "user", content: fileContent }
-						],
-					}).then((response) => {
-						const content = response.choices[0].message.content;
-						console.log(content);
-						if (content) {
-							// Replace the selected text with the response
-							activeEditor.edit((editBuilder) => {
-								editBuilder.replace(selection, content);
+					lean4Extension.exports.lean4EnabledFeatures.then((features: any) => {
+						const editorApi = features.infoProvider.editorApi;
+						editorApi.sendClientRequest(document.uri.toString(), '$/lean/plainGoal', {textDocument: {uri: document.uri.toString()}, position: {line: selection.start.line, character: selection.start.character}}).then((response: any) => {
+							const goals = response.rendered.trim();
+							const systemPrompt = "You are an expert in Lean 4 theorem proving. Given a Lean 4 file content up to the current cursor position and the remaining proof goals, suggest a single tactic that would help progress the proof. Your response must have exactly one line, and it should include only the tactic, WITHOUT any additional explanation or formatting.";
+							const userPrompt = `File content up to the current position:\n\n${fileContent}\n\nRemaining proof goals:\n\n${goals}`;
+							vscode.window.showInformationMessage(`System: ${systemPrompt}`);
+							vscode.window.showInformationMessage(`User: ${userPrompt}`);
+							client.chat.completions.create({
+								model: "gpt-4o",
+								messages: [
+									{ role: "system", content: systemPrompt },
+									{ role: "user", content: fileContent }
+								],
+							}).then((response) => {
+								const content = response.choices[0].message.content;
+								vscode.window.showInformationMessage(`Assistant: ${content}`);
+								if (content) {
+									// Replace the selected text with the response
+									activeEditor.edit((editBuilder) => {
+										editBuilder.replace(selection, content);
+									});
+								}
 							});
-						}
+						});
 					});
 				});
 			} else {
