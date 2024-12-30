@@ -37,5 +37,8 @@
     "typescript": "^5.7.2",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1"
-  }
+  },
+  "extensionDependencies": [
+    "leanprover.lean4"
+  ]
 }
