@@ -81,7 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
                           model: "gpt-4o",
                           messages: [
                             { role: "system", content: systemPrompt },
-                            { role: "user", content: fileContent },
+                            { role: "user", content: userPrompt },
                           ],
                         })
                         .then((response) => {
